@@ -1,3 +1,28 @@
+# Source-to-Target Mapping (ETL) - Penjualan Reseller
+
+Dokumen ini memuat pemetaan ekstraksi, transformasi, dan load (ETL) dari sumber data (OLTP AdventureWorks / `adventureworks2`) ke Data Warehouse (`dw_kelompok_1` — Star Schema v2).
+
+## Target: dim_tanggal (Standar Sponsor — SCD: Tipe 0)
+
+Sumber utama: Skrip SQL standar sponsor (`dim_tanggal_mysql.sql`, rentang `2010-01-01` s.d. `2015-12-31` + baris `-1` tanggal `1900-01-01`, total 2.192 baris).
+
+| Kolom target | Tipe | Tabel.kolom sumber | Transformasi | Aturan NULL |
+| ----- | ----- | ----- | ----- | ----- |
+| tanggal_key | INT PK | \- | Format integer `YYYYMMDD` (baris `-1` bernilai `-1`) | \-1 |
+| tanggal | DATE | \- | Tanggal kalender `YYYY-MM-DD` (baris `-1` bernilai `1900-01-01`) | \- |
+| tahun | INT | \- | Tahun kalender 4 digit (`YEAR(tanggal)`) | \- |
+| semester | INT | \- | Semester `1` (Jan–Jun) atau `2` (Jul–Des) | \- |
+| kuartal | INT | \- | Kuartal `1` s.d. `4` (`QUARTER(tanggal)`) | \- |
+| bulan | INT | \- | Nomor bulan `1` s.d. `12` (`MONTH(tanggal)`) | \- |
+| nama_bulan | VARCHAR(15) | \- | Nama bulan dalam bahasa Indonesia (Januari–Desember) | \- |
+| minggu_dalam_tahun | INT | \- | Nomor minggu ke-`1` s.d. `53` menurut standar ISO 8601 | \- |
+| tanggal_dalam_bulan | INT | \- | Tanggal dalam bulan `1` s.d. `31` (`DAY(tanggal)`) | \- |
+| hari_dalam_minggu | INT | \- | `1` = Senin s.d. `7` = Minggu menurut ISO 8601 | \- |
+| nama_hari | VARCHAR(15) | \- | Nama hari dalam bahasa Indonesia (Senin–Minggu) | \- |
+| is_akhir_pekan | BOOLEAN | \- | `TRUE` (`1`) jika Sabtu/Minggu, selain itu `FALSE` (`0`) | \- |
+
+> **Catatan aturan `dim_tanggal`:** Tabel standar tidak boleh diubah strukturnya dan tidak boleh dibuat sendiri lewat Pentaho. Jika tim membutuhkan atribut tanggal tambahan di luar 12 kolom di atas (misalnya penanda hari libur nasional), atribut tersebut dibuat pada tabel pendamping terpisah (mis. `dim_tanggal_libur`) yang terhubung melalui `tanggal_key` sebagai `PRIMARY KEY` dan `FOREIGN KEY` ke `dim_tanggal (tanggal_key)`.
+
 ## Target: dim_produk (SCD: Campuran Tipe 0, 1, dan 2)
 
 Sumber utama: `production.product`, `production.productsubcategory`, `production.productcategory`, `production.productcosthistory`, `production.productlistpricehistory`
@@ -93,19 +118,18 @@ Sumber utama: `sales.currencyrate`
 | kode_asal | VARCHAR(3) | `currencyrate.FromCurrencyCode` | langsung | "USD" (Baris USD) | 
 | kode_tujuan | VARCHAR(3) | `currencyrate.ToCurrencyCode` | langsung | "USD" (Baris USD) | 
 | tanggal_kurs | DATE | `currencyrate.CurrencyRateDate` | DATE() | 1900-01-01 | 
-| average_rate | DECIMAL(15,4) | `currencyrate.AverageRate` | langsung | 1 (Baris USD) | 
-| end_of_day_rate | DECIMAL(15,4) | `currencyrate.EndOfDayRate` | langsung | 1 (Baris USD) | 
+| average_rate | DECIMAL(10,4) | `currencyrate.AverageRate` | langsung | 1 (Baris USD) | 
+| end_of_day_rate | DECIMAL(10,4) | `currencyrate.EndOfDayRate` | langsung | 1 (Baris USD) | 
 
 ## Target: fact_penjualan_reseller (grain: 1 baris = 1 produk dalam 1 pesanan reseller)
 
-Sumber utama: `sales.salesorderheader`, `sales.salesorderdetail`
+Sumber utama: `sales.salesorderheader`, `sales.salesorderdetail` (filter: `OnlineOrderFlag = 0`)
 
 | Kolom target | Tipe | Tabel.kolom sumber | Transformasi | Aturan NULL | 
 | ----- | ----- | ----- | ----- | ----- | 
 | fakta_penjualan_key | BIGINT PK | \- | surrogate key dari DW | \- | 
 | tanggal_pesan_key | INT FK | `OrderDate` | `DATE(OrderDate)` ke format YYYYMMDD | \- | 
 | tanggal_kirim_key | INT FK | `ShipDate` | `DATE(ShipDate)` ke format YYYYMMDD | \-1 | 
-| tanggal_jatuh_tempo_key | INT FK | `DueDate` | `DATE(DueDate)` ke format YYYYMMDD | \- | 
 | produk_key | INT FK | \- | Lookup `dim_produk` via `ProductID` & rentang SCD (`OrderDate`) | \-1 | 
 | reseller_key | INT FK | `sales_customer.StoreID` | Lookup `dim_reseller` via ID toko | \-1 | 
 | sales_person_key | INT FK | `SalesPersonID` | Lookup `dim_sales_person` | \-1 | 
@@ -123,29 +147,52 @@ Sumber utama: `sales.salesorderheader`, `sales.salesorderdetail`
 | laba_kotor_reseller | DECIMAL(12,2) | \- | `harga_jual_standar - nilai_penjualan` | 0 | 
 | laba_kotor_perusahaan | DECIMAL(12,2) | \- | `nilai_penjualan - biaya_standar_produk` | 0 | 
 
+## Daftar Tabel Staging
+
+Seluruh tabel staging (`stg_*`) berada di database DW (`dw_kelompok_1`), merupakan salinan mentah dari database sumber `adventureworks` tanpa constraint, dan dikosongkan (`TRUNCATE`) setiap kali ETL dijalankan.
+
+| Tabel staging | Sumber di `adventureworks` | Dipakai untuk |
+| ----- | ----- | ----- |
+| `stg_salesorderheader` | `sales.salesorderheader` | `fact_penjualan_reseller` |
+| `stg_salesorderdetail` | `sales.salesorderdetail` | `fact_penjualan_reseller` |
+| `stg_product` | `production.product` | `dim_produk` |
+| `stg_productsubcategory` | `production.productsubcategory` | `dim_produk` |
+| `stg_productcategory` | `production.productcategory` | `dim_produk` |
+| `stg_productcosthistory` | `production.productcosthistory` | `dim_produk` (SCD Tipe 2) & `fact_penjualan_reseller` |
+| `stg_productlistpricehistory` | `production.productlistpricehistory` | `dim_produk` (SCD Tipe 2) & `fact_penjualan_reseller` |
+| `stg_store` | `sales.store` | `dim_reseller` |
+| `stg_customer` | `sales.customer` | `dim_reseller`, `fact_penjualan_reseller` |
+| `stg_salesperson` | `sales.salesperson` | `dim_sales_person` |
+| `stg_person` | `person.person` | `dim_sales_person` |
+| `stg_salesterritory` | `sales.salesterritory` | `dim_wilayah` |
+| `stg_specialoffer` | `sales.specialoffer` | `dim_promosi` |
+| `stg_shipmethod` | `purchasing.shipmethod` | `dim_metode_kirim` |
+| `stg_currencyrate` | `sales.currencyrate` | `dim_mata_uang` |
+
 ## Urutan Load Data
 
+Penjelasan detail tiap tahap dapat dilihat di [docs/urutan-load.md](urutan-load.md).
+
 1. **`stg_*` (extract penuh, truncate tiap jalan)**
-   * Tarik semua informasi data mentah dari database operasional ke area staging.
-   * Bersihkan tabel staging terlebih dahulu (truncate) sebelum melakukan pemuatan data baru.
-   * Isi area staging dengan data terbaru agar proses transformasi tidak membebani kinerja database utama.
+   * Tarik semua data mentah dari database operasional (`adventureworks`) ke tabel staging `stg_*` di database DW.
+   * Bersihkan tabel staging (`TRUNCATE`) sebelum melakukan pemuatan data baru agar transformasi berikutnya berjalan di satu database DW tanpa membebani database sumber.
 
-2. **`dim_tanggal`**
-   * Bangun pondasi dimensi waktu dengan mengeksekusi skrip bawaan sponsor secara langsung di database Data Warehouse.
-   * Cetak seluruh hari di kalender dengan rentang tahun 2010 hingga 2015.
-   * Sisipkan baris dengan ID "-1" untuk menangani data transaksi yang tanggalnya kosong.
+2. **`dim_tanggal` (skrip standar sponsor — dijalankan sekali sebelum DDL/ETL)**
+   * Jalankan skrip standar `dim_tanggal_mysql.sql` dari sponsor langsung di database DW (`2010-01-01` s.d. `2015-12-31` + baris `-1`, total 2.192 baris).
+   * Tabel ini tidak dibuat sendiri di Pentaho, tidak diubah strukturnya, dan tidak ikut di-`DROP` saat skrip DDL dijalankan ulang.
 
-3. **`dim_produk` (proses SCD tipe 2)**
-   * Proses dimensi produk ini lebih awal karena logika riwayatnya cukup rumit.
-   * Jahit riwayat perubahan harga dan biaya menggunakan metode SCD tipe 2.
-   * Gabungkan master produk dan tabel riwayatnya agar sistem bisa membedakan harga pada tahun transaksi yang berbeda.
+3. **`dim_produk` (proses SCD campuran Tipe 0, 1, dan 2)**
+   * Jahit riwayat perubahan `biaya_standar` dan `harga_jual` dari tabel staging riwayat produk menggunakan metode SCD Tipe 2 (beserta fallback ke master produk).
+   * Pastikan baris `-1` (`'Tidak diketahui'`) tersedia di `dim_produk`.
 
-4. **`dim_reseller, dim_sales_person, dim_wilayah, dim_promosi, dim_metode_kirim, dim_mata_uang` (proses SCD tipe 1)**
-   * Muat semua dimensi pendukung lainnya menggunakan metode SCD tipe 1.
-   * Timpa data lama secara langsung jika terdapat pembaruan informasi dari sumber operasional.
-   * Pastikan setiap tabel dimensi memiliki baris ID "-1" sebagai penampung data yang tidak terdefinisi.
+4. **`dim_reseller`, `dim_sales_person`, `dim_wilayah`, `dim_promosi`, `dim_metode_kirim`, `dim_mata_uang` (proses SCD Tipe 1)**
+   * Muat semua dimensi pendukung menggunakan metode SCD Tipe 1 (timpa nilai terbaru bila terdapat pembaruan dari sumber).
+   * Pastikan setiap dimensi memiliki baris dengan key `-1` (`'Tidak diketahui'`), termasuk baris default USD pada `dim_mata_uang`.
 
-5. **`fact_penjualan_reseller` (lookup surrogate key ke dimensi + kalkulasi perhitungan measure)**
-   * Jadikan proses pemuatan tabel fakta ini sebagai muara akhir alur ETL.
-   * Konversi semua ID transaksi lama menjadi Surrogate Key dengan mencocokkannya ke tabel dimensi.
-   * Hitung metrik uang seperti total omzet, diskon, dan keuntungan secara otomatis di tahap ini.
+5. **`fact_penjualan_reseller` (lookup surrogate key ke dimensi + kalkulasi measure)**
+   * Filter pesanan reseller (`OnlineOrderFlag = 0`), konversi `OrderDate` dan `ShipDate` menjadi `tanggal_pesan_key` dan `tanggal_kirim_key` (`YYYYMMDD`, fallback `-1` jika `ShipDate` NULL).
+   * Lakukan lookup surrogate key ke seluruh dimensi (khusus `dim_produk`, cocokkan `produk_id` beserta rentang tanggal `berlaku_mulai` s.d. `berlaku_sampai`).
+   * Hitung seluruh measure (`nilai_penjualan`, `biaya_standar_produk`, `harga_jual_standar`, `laba_kotor_reseller`, `laba_kotor_perusahaan`).
+
+6. **Rekonsiliasi & Validasi Data**
+   * Verifikasi jumlah baris `fact_penjualan_reseller` (60.919 baris detail pesanan reseller), kecocokan total `nilai_penjualan` terhadap sumber, dan pastikan tidak ada foreign key yang bernilai `NULL` atau `0`.
