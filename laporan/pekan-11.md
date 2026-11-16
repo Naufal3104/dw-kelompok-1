@@ -53,7 +53,7 @@ Status        : Kuning
 
 | Nama | Peran | Yang dikerjakan pekan ini | Bukti commit |
 |------|-------|---------------------------|--------------|
-| Ragil Hidayatulloh | Project Manager | Koordinasi pekan 11, menyusun laporan progres, dan Source-to-target mapping lengkap |  |
+| Ragil Hidayatulloh | Project Manager | Koordinasi pekan 11, menyusun laporan progres, dan Source-to-target mapping lengkap | `laporan dan mapping` |
 | Flaody Nayaka Zedha Priyambudi | Data Modeler | Star schema v2 dan strategi SCD | `update star schema v2 & scd` |
 | Jonatan Risa Siswanto | ETL Developer | Membuat urutan load dan Uji Pentaho, koneksi ke `adventureworks2`, uji Table Input, profil data sumber | `urutan load data` |
 | Raka Hanasta Syahrafi | OLAP Developer | Analisis ketersediaan measure dan desain cube | `desain cube` |
