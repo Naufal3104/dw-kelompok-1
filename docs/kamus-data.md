@@ -179,3 +179,229 @@ Tabel dimensi (*conformed dimension*) yang menyimpan informasi mata uang serta n
 | `tanggal_kurs` | `DATE` | Tanggal berlakunya nilai tukar mata uang tersebut | `2011-05-31` | Berasal dari `CurrencyRateDate` untuk memastikan akurasi nilai tukar historis. |
 | `average_rate` | `DECIMAL(10,4)` | Nilai tukar rata-rata harian pada tanggal transaksi | `0.9746` | Berasal dari `AverageRate` sebagai acuan konversi standar. |
 | `end_of_day_rate` | `DECIMAL(10,4)` | Nilai tukar penutupan pada akhir hari transaksi | `0.9745` | Berasal dari `EndOfDayRate` untuk kebutuhan rekonsiliasi keuangan akhir hari. |
+
+
+# Kamus Data Staging Area — Penjualan Reseller
+
+Dokumen ini mendefinisikan struktur **15 tabel staging** pada database `dw_kelompok_1` yang dibangkitkan melalui skrip `00_staging_ddl.sql` (MySQL 8.0+). Lapisan *staging* berfungsi sebagai area pendaratan sementara (*landing zone*) untuk menampung data mentah hasil ekstraksi dari database transaksional AdventureWorks sebelum ditransformasi ke dalam skema bintang (**Star Schema v2**).
+
+**Karakteristik Teknis Lapisan Staging:**
+* **Tanpa Constraint (PK/FK):** Seluruh tabel dibuat tanpa *Primary Key* maupun *Foreign Key* agar pemuatan data mentah berjalan cepat tanpa terhambat validasi integritas referensial.
+* **Strategi Truncate & Reload:** Seluruh tabel dikosongkan (`TRUNCATE`) setiap kali alur ETL/ELT dijalankan ulang untuk menghindari duplikasi data mentah.
+* **Preservasi Tipe Waktu (`DATETIME`):** Atribut tanggal dipertahankan dalam format `DATETIME` sesuai tabel sumber sebelum dikonversi ke `DATE` atau kunci integer `YYYYMMDD` pada tahap transformasi.
+* **Indeks Optimasi Transformasi:** Dilengkapi 7 indeks non-unik (`ix_stg_soh`, `ix_stg_sod`, `ix_stg_pch`, `ix_stg_plh`, `ix_stg_cust`, `ix_stg_store`, `ix_stg_curr`) untuk mempercepat proses `JOIN` antar-tabel *staging* saat pembentukan dimensi dan fakta.
+
+---
+
+## 1. `stg_salesorderheader`
+
+Menampung data header pesanan penjualan mentah dari tabel sumber `Sales.SalesOrderHeader`.
+
+| Kolom | Tipe | Arti | Contoh | Catatan |
+| :--- | :--- | :--- | :--- | :--- |
+| `salesorderid` | `INT` | ID unik header pesanan penjualan dari sistem sumber | `43659` | Diindeks (`ix_stg_soh`) untuk mempercepat `JOIN` dengan `stg_salesorderdetail`. |
+| `salesordernumber` | `VARCHAR(25)` | Nomor dokumen faktur pesanan penjualan | `SO43659` | Diteruskan sebagai *degenerate dimension* ke `fact_penjualan_reseller`. |
+| `orderdate` | `DATETIME` | Tanggal dan waktu pesanan dibuat | `2011-05-31 00:00:00` | Dikonversi menjadi format integer `YYYYMMDD` untuk mengisi `tanggal_pesan_key`. |
+| `duedate` | `DATETIME` | Tanggal dan waktu jatuh tempo pembayaran atau pengiriman | `2011-06-12 00:00:00` | Disimpan sebagai referensi operasional dari sistem sumber. |
+| `shipdate` | `DATETIME` | Tanggal dan waktu pesanan dikirimkan ke reseller | `2011-06-07 00:00:00` | Boleh `NULL`. Jika bernilai `NULL`, dipetakan ke `-1` pada `tanggal_kirim_key`. |
+| `onlineorderflag` | `TINYINT(1)` | Penanda saluran transaksi (`0` = Reseller, `1` = Online) | `0` | Difilter dengan syarat `onlineorderflag = 0` agar hanya memuat penjualan reseller. |
+| `customerid` | `INT` | ID pelanggan yang melakukan pemesanan | `29825` | Digunakan untuk *lookup* ke `stg_customer` guna memperoleh `storeid`. |
+| `salespersonid` | `INT` | ID tenaga penjual yang menangani pesanan | `279` | Boleh `NULL`. Dipetakan ke `dim_sales_person.sales_person_id`. |
+| `territoryid` | `INT` | ID wilayah geografis tempat transaksi berlangsung | `5` | Boleh `NULL`. Dipetakan ke `dim_wilayah.wilayah_id`. |
+| `shipmethodid` | `INT` | ID metode pengiriman logistik yang dipilih | `5` | Dipetakan ke `dim_metode_kirim.metode_kirim_id`. |
+| `currencyrateid` | `INT` | ID kurs mata uang yang berlaku saat transaksi | `102` | Boleh `NULL`. Nilai `NULL` menandakan transaksi menggunakan mata uang dasar USD. |
+| `subtotal` | `DECIMAL(19,4)` | Total nilai pesanan sebelum pajak dan ongkos kirim pada tingkat header | `20565.6206` | Referensi audit untuk memvalidasi agregasi `linetotal` dari tabel detail. |
+| `taxamt` | `DECIMAL(19,4)` | Nominal pajak transaksi pada tingkat header | `1971.5149` | Nilai pajak mentah dari database sumber OLTP. |
+| `freight` | `DECIMAL(19,4)` | Total biaya pengiriman pada tingkat header | `616.0984` | Nilai ongkos kirim mentah dari database sumber OLTP. |
+
+---
+
+## 2. `stg_salesorderdetail`
+
+Menampung rincian item produk per pesanan dari tabel sumber `Sales.SalesOrderDetail`.
+
+| Kolom | Tipe | Arti | Contoh | Catatan |
+| :--- | :--- | :--- | :--- | :--- |
+| `salesorderid` | `INT` | ID header pesanan tempat item berada | `43659` | Diindeks (`ix_stg_sod`) untuk mempercepat penggabungan dengan `stg_salesorderheader`. |
+| `salesorderdetailid` | `INT` | ID unik baris detail item dalam satu pesanan | `1` | Menentukan granularitas (*grain*) satu baris per *line item* pada tabel fakta. |
+| `productid` | `INT` | ID produk yang dibeli pada baris item tersebut | `776` | Digunakan untuk *lookup* versi produk aktif di `dim_produk` berdasarkan tanggal pesan. |
+| `specialofferid` | `INT` | ID skema promosi atau diskon yang berlaku pada item | `1` | Dipetakan ke `dim_promosi.promosi_id`. |
+| `orderqty` | `INT` | Kuantitas unit produk yang dipesan | `1` | Dipetakan langsung ke metrik `jumlah_unit` pada `fact_penjualan_reseller`. |
+| `unitprice` | `DECIMAL(19,4)` | Harga satuan produk setelah dipotong diskon satuan | `2024.9940` | Dipetakan ke metrik `harga_satuan` pada `fact_penjualan_reseller`. |
+| `unitpricediscount` | `DECIMAL(19,4)` | Nominal potongan harga per unit produk | `0.0000` | Nilai diskon satuan mentah dari sistem sumber. |
+| `linetotal` | `DECIMAL(19,4)` | Total nilai penjualan bersih per baris item pesanan | `2024.9940` | Dipetakan ke metrik `nilai_penjualan` pada `fact_penjualan_reseller`. |
+
+---
+
+## 3. `stg_product`
+
+Menampung data induk katalog produk dari tabel sumber `Production.Product`.
+
+| Kolom | Tipe | Arti | Contoh | Catatan |
+| :--- | :--- | :--- | :--- | :--- |
+| `productid` | `INT` | ID unik produk dari sistem sumber | `776` | Menjadi *natural key* (`produk_id`) pada tabel `dim_produk`. |
+| `name` | `VARCHAR(50)` | Nama lengkap produk | `Mountain-100 Black, 42` | Dipetakan ke kolom `dim_produk.nama_produk`. |
+| `productnumber` | `VARCHAR(25)` | Kode SKU atau nomor unik produk | `BK-M82B-42` | Dipetakan ke kolom `dim_produk.nomor_produk`. |
+| `color` | `VARCHAR(15)` | Warna fisik varian produk | `Black` | Boleh `NULL`. Diisi nilai bawaan (seperti `'N/A'`) saat transformasi jika bernilai `NULL`. |
+| `productsubcategoryid` | `INT` | ID subkategori tempat produk dikelompokkan | `1` | Boleh `NULL`. Digunakan untuk melakukan `LEFT JOIN` ke `stg_productsubcategory`. |
+| `standardcost` | `DECIMAL(19,4)` | Biaya produksi standar terkini pada tabel master produk | `1898.0944` | Nilai cadangan (*fallback*) apabila produk tidak memiliki riwayat di `stg_productcosthistory`. |
+| `listprice` | `DECIMAL(19,4)` | Harga jual katalog standar terkini pada tabel master produk | `3374.9900` | Nilai cadangan (*fallback*) apabila produk tidak memiliki riwayat di `stg_productlistpricehistory`. |
+
+---
+
+## 4. `stg_productsubcategory`
+
+Menampung referensi subkategori produk dari tabel sumber `Production.ProductSubcategory`.
+
+| Kolom | Tipe | Arti | Contoh | Catatan |
+| :--- | :--- | :--- | :--- | :--- |
+| `productsubcategoryid` | `INT` | ID unik subkategori produk | `1` | Kunci penghubung dari kolom `stg_product.productsubcategoryid`. |
+| `productcategoryid` | `INT` | ID kategori utama induk dari subkategori tersebut | `1` | Kunci penghubung menuju tabel `stg_productcategory`. |
+| `name` | `VARCHAR(50)` | Nama subkategori produk | `Mountain Bikes` | Didenormalisasi menjadi atribut `dim_produk.subkategori`. |
+
+---
+
+## 5. `stg_productcategory`
+
+Menampung referensi kategori utama produk dari tabel sumber `Production.ProductCategory`.
+
+| Kolom | Tipe | Arti | Contoh | Catatan |
+| :--- | :--- | :--- | :--- | :--- |
+| `productcategoryid` | `INT` | ID unik kategori utama produk | `1` | Kunci penghubung dari kolom `stg_productsubcategory.productcategoryid`. |
+| `name` | `VARCHAR(50)` | Nama kategori utama produk | `Bikes` | Didenormalisasi menjadi atribut `dim_produk.kategori`. |
+
+---
+
+## 6. `stg_productcosthistory`
+
+Menampung riwayat perubahan biaya standar produk dari tabel sumber `Production.ProductCostHistory` untuk membangun versi historis SCD Tipe 2.
+
+| Kolom | Tipe | Arti | Contoh | Catatan |
+| :--- | :--- | :--- | :--- | :--- |
+| `productid` | `INT` | ID produk yang mengalami perubahan biaya standar | `707` | Diindeks (`ix_stg_pch`) untuk mempercepat rekonstruksi versi SCD Tipe 2 pada `dim_produk`. |
+| `startdate` | `DATETIME` | Tanggal dan waktu mulai berlakunya biaya standar baru | `2011-05-31 00:00:00` | Dikonversi menjadi tipe `DATE` untuk mengisi `dim_produk.berlaku_mulai`. |
+| `enddate` | `DATETIME` | Tanggal dan waktu berakhirnya masa berlaku biaya standar | `2012-05-29 00:00:00` | Boleh `NULL`. Nilai `NULL` menandakan biaya standar tersebut masih berlaku aktif saat ini. |
+| `standardcost` | `DECIMAL(19,4)` | Nominal biaya produksi standar pada periode tersebut | `12.0278` | Dipetakan ke `dim_produk.biaya_standar` sesuai rentang waktu validitasnya. |
+
+---
+
+## 7. `stg_productlistpricehistory`
+
+Menampung riwayat perubahan harga jual katalog produk dari tabel sumber `Production.ProductListPriceHistory` untuk mendukung SCD Tipe 2.
+
+| Kolom | Tipe | Arti | Contoh | Catatan |
+| :--- | :--- | :--- | :--- | :--- |
+| `productid` | `INT` | ID produk yang mengalami perubahan harga jual katalog | `707` | Diindeks (`ix_stg_plh`) untuk mempercepat penggabungan riwayat harga dengan riwayat biaya produk. |
+| `startdate` | `DATETIME` | Tanggal dan waktu mulai berlakunya harga jual baru | `2011-05-31 00:00:00` | Dikonversi menjadi tipe `DATE` sebagai penanda awal versi harga produk. |
+| `enddate` | `DATETIME` | Tanggal dan waktu berakhirnya masa berlaku harga jual | `2012-05-29 00:00:00` | Boleh `NULL`. Nilai `NULL` menandakan harga katalog tersebut masih aktif. |
+| `listprice` | `DECIMAL(19,4)` | Nominal harga jual katalog resmi pada periode tersebut | `33.6442` | Dipetakan ke `dim_produk.harga_jual` sesuai rentang waktu validitasnya. |
+
+---
+
+## 8. `stg_store`
+
+Menampung data profil mitra toko reseller dari tabel sumber `Sales.Store`.
+
+| Kolom | Tipe | Arti | Contoh | Catatan |
+| :--- | :--- | :--- | :--- | :--- |
+| `businessentityid` | `INT` | ID unik entitas bisnis toko reseller | `292` | Diindeks (`ix_stg_store`) dan dipetakan sebagai *natural key* `dim_reseller.reseller_id`. |
+| `name` | `VARCHAR(100)` | Nama toko atau perusahaan mitra reseller | `Next-Door Bike Store` | Dipetakan ke `dim_reseller.nama_reseller`. |
+| `salespersonid` | `INT` | ID tenaga penjual yang ditugaskan menangani toko tersebut | `279` | Boleh `NULL`. Informasi relasi penanggung jawab toko di sistem operasional. |
+| `demographics` | `TEXT` | Data survei profil toko dalam format XML mentah | `<StoreSurvey ...>` | Boleh `NULL`. Diuraikan (*parsing*) saat ETL menggunakan `ExtractValue()` untuk mengisi `tipe_bisnis`, `penjualan_tahunan`, `jumlah_karyawan`, dan `tahun_buka`. |
+
+---
+
+## 9. `stg_customer`
+
+Menampung data penghubung antara transaksi penjualan dengan entitas toko reseller dari tabel sumber `Sales.Customer`.
+
+| Kolom | Tipe | Arti | Contoh | Catatan |
+| :--- | :--- | :--- | :--- | :--- |
+| `customerid` | `INT` | ID unik pelanggan yang tercatat pada header pesanan | `29825` | Diindeks (`ix_stg_cust`) sebagai kunci penghubung antara `stg_salesorderheader` dan `stg_store`. |
+| `personid` | `INT` | ID kontak individu apabila pelanggan merupakan pembeli perorangan | `NULL` | Boleh `NULL`. |
+| `storeid` | `INT` | ID toko reseller apabila pelanggan merupakan mitra toko | `292` | Boleh `NULL`. Merujuk ke `stg_store.businessentityid` untuk memperoleh `reseller_key`. |
+| `territoryid` | `INT` | ID wilayah asal pelanggan | `5` | Boleh `NULL`. |
+
+---
+
+## 10. `stg_salesperson`
+
+Menampung data target penjualan dan komisi tenaga penjual dari tabel sumber `Sales.SalesPerson`.
+
+| Kolom | Tipe | Arti | Contoh | Catatan |
+| :--- | :--- | :--- | :--- | :--- |
+| `businessentityid` | `INT` | ID unik tenaga penjual | `279` | Menjadi *natural key* `dim_sales_person.sales_person_id` sekaligus kunci `JOIN` ke `stg_person`. |
+| `territoryid` | `INT` | ID wilayah pemasaran yang ditugaskan kepada tenaga penjual | `5` | Boleh `NULL`. |
+| `salesquota` | `DECIMAL(19,4)` | Target kuota penjualan yang dibebankan kepada tenaga penjual | `250000.0000` | Boleh `NULL`. Dipetakan ke `dim_sales_person.kuota_penjualan`. |
+| `bonus` | `DECIMAL(19,4)` | Nominal bonus yang diperoleh tenaga penjual | `6700.0000` | Data pendukung kinerja dari sistem sumber. |
+| `commissionpct` | `DECIMAL(10,4)` | Persentase komisi penjualan tenaga penjual | `0.0150` | Dipetakan ke `dim_sales_person.komisi_persen`. |
+
+---
+
+## 11. `stg_person`
+
+Menampung atribut nama individu dari tabel sumber `Person.Person` untuk melengkapi profil tenaga penjual.
+
+| Kolom | Tipe | Arti | Contoh | Catatan |
+| :--- | :--- | :--- | :--- | :--- |
+| `businessentityid` | `INT` | ID unik entitas individu | `279` | Kunci penghubung dengan `stg_salesperson.businessentityid`. |
+| `firstname` | `VARCHAR(50)` | Nama depan individu | `Tsvi` | Digabungkan dengan nama tengah dan belakang menjadi `dim_sales_person.nama_lengkap`. |
+| `middlename` | `VARCHAR(50)` | Nama tengah individu | `Michael` | Boleh `NULL`. Menggunakan `CONCAT_WS` saat transformasi agar nilai `NULL` tidak menghapus keseluruhan string nama. |
+| `lastname` | `VARCHAR(50)` | Nama belakang individu | `Reiter` | Digabungkan menjadi bagian akhir dari `dim_sales_person.nama_lengkap`. |
+
+---
+
+## 12. `stg_salesterritory`
+
+Menampung data referensi wilayah pemasaran dari tabel sumber `Sales.SalesTerritory`.
+
+| Kolom | Tipe | Arti | Contoh | Catatan |
+| :--- | :--- | :--- | :--- | :--- |
+| `territoryid` | `INT` | ID unik wilayah pemasaran | `4` | Menjadi *natural key* `dim_wilayah.wilayah_id`. |
+| `name` | `VARCHAR(50)` | Nama wilayah pemasaran | `Southwest` | Dipetakan ke `dim_wilayah.nama_wilayah`. |
+| `countryregioncode` | `VARCHAR(3)` | Kode standar negara dua huruf | `US` | Dipetakan ke `dim_wilayah.kode_negara`. |
+| `group` | `VARCHAR(50)` | Kelompok kawasan benua atau pasar regional | `North America` | Diapit tanda *backtick* (`` `group` ``) pada skrip DDL karena merupakan *reserved keyword* di MySQL; dipetakan ke `dim_wilayah.grup`. |
+
+---
+
+## 13. `stg_specialoffer`
+
+Menampung data daftar program promosi dan skema diskon dari tabel sumber `Sales.SpecialOffer`.
+
+| Kolom | Tipe | Arti | Contoh | Catatan |
+| :--- | :--- | :--- | :--- | :--- |
+| `specialofferid` | `INT` | ID unik program penawaran khusus atau diskon | `1` | Menjadi *natural key* `dim_promosi.promosi_id`. |
+| `description` | `VARCHAR(255)` | Keterangan lengkap nama atau aturan promosi | `No Discount` | Dipetakan ke `dim_promosi.deskripsi`. |
+| `type` | `VARCHAR(50)` | Tipe atau mekanisme pemberian promosi | `No Discount` | Dipetakan ke `dim_promosi.jenis`. |
+| `category` | `VARCHAR(50)` | Sasaran segmen penerima promosi | `No Discount` | Dipetakan ke `dim_promosi.kategori`. |
+| `discountpct` | `DECIMAL(10,4)` | Besaran persentase diskon dalam format desimal | `0.0000` | Dipetakan ke `dim_promosi.persentase_diskon`. |
+| `startdate` | `DATETIME` | Tanggal dan waktu dimulainya periode promosi | `2011-05-01 00:00:00` | Dikonversi ke `DATE` untuk mengisi `dim_promosi.mulai`. |
+| `enddate` | `DATETIME` | Tanggal dan waktu berakhirnya periode promosi | `2014-11-30 00:00:00` | Dikonversi ke `DATE` untuk mengisi `dim_promosi.selesai`. |
+
+---
+
+## 14. `stg_shipmethod`
+
+Menampung data referensi jasa pengiriman dari tabel sumber `Purchasing.ShipMethod`.
+
+| Kolom | Tipe | Arti | Contoh | Catatan |
+| :--- | :--- | :--- | :--- | :--- |
+| `shipmethodid` | `INT` | ID unik metode pengiriman logistik | `5` | Menjadi *natural key* `dim_metode_kirim.metode_kirim_id`. |
+| `name` | `VARCHAR(50)` | Nama layanan ekspedisi atau kurir pengiriman | `CARGO TRANSPORT 5` | Dipetakan ke `dim_metode_kirim.nama_metode`. |
+| `shipbase` | `DECIMAL(19,4)` | Biaya dasar tetap minimum pengiriman per pesanan | `8.9900` | Dipetakan ke `dim_metode_kirim.biaya_dasar`. |
+| `shiprate` | `DECIMAL(19,4)` | Tarif tambahan pengiriman per satuan unit | `1.4900` | Dipetakan ke `dim_metode_kirim.tarif`. |
+
+---
+
+## 15. `stg_currencyrate`
+
+Menampung data historis nilai tukar valuta asing harian dari tabel sumber `Sales.CurrencyRate`.
+
+| Kolom | Tipe | Arti | Contoh | Catatan |
+| :--- | :--- | :--- | :--- | :--- |
+| `currencyrateid` | `INT` | ID unik entri nilai tukar mata uang harian | `102` | Diindeks (`ix_stg_curr`) dan dipetakan ke `dim_mata_uang.currency_rate_id`. |
+| `currencyratedate` | `DATETIME` | Tanggal dan waktu berlakunya nilai tukar tersebut | `2011-05-31 00:00:00` | Dikonversi ke `DATE` untuk mengisi `dim_mata_uang.tanggal_kurs`. |
+| `fromcurrencycode` | `VARCHAR(3)` | Kode mata uang asal sebelum konversi | `USD` | Dipetakan ke `dim_mata_uang.kode_asal`. |
+| `tocurrencycode` | `VARCHAR(3)` | Kode mata uang tujuan transaksi | `CAD` | Dipetakan ke `dim_mata_uang.kode_tujuan`. |
+| `averagerate` | `DECIMAL(19,4)` | Nilai tukar rata-rata harian | `0.9746` | Dipetakan ke `dim_mata_uang.average_rate`. |
+| `endofdayrate` | `DECIMAL(19,4)` | Nilai tukar penutupan pada akhir hari | `0.9745` | Dipetakan ke `dim_mata_uang.end_of_day_rate`. |
