@@ -5,218 +5,218 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Mockup dashboard analitik penjualan reseller Adventure Works"
+      content="Dashboard warehouse untuk analisis penjualan reseller Adventure Works."
     />
-    <title>Reseller Pulse — Adventure Works</title>
+    <title>Reseller warehouse | Adventure Works</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;500&family=Host+Grotesk:wght@400;500&display=swap"
       rel="stylesheet"
     />
+    <link rel="stylesheet" href="tokens.css" />
+    <link rel="stylesheet" href="base.css" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div class="app-shell">
-      <aside class="sidebar" aria-label="Navigasi utama">
-        <div class="brand">
-          <div class="brand-mark">AW</div>
-          <div>
-            <strong>Adventure Works</strong>
-            <span>Data warehouse portal</span>
-          </div>
-        </div>
-
-        <nav class="nav-list">
-          <a class="nav-item active" href="#overview">
-            <span class="nav-icon">⌂</span>
-            Overview
-          </a>
-          <a class="nav-item" href="#sales-trend">
-            <span class="nav-icon">↗</span>
-            Sales performance
-          </a>
-          <a class="nav-item" href="#products">
-            <span class="nav-icon">▦</span>
-            Products
-          </a>
-          <a class="nav-item" href="#resellers">
-            <span class="nav-icon">◎</span>
-            Resellers
-          </a>
-          <a class="nav-item" href="#team">
-            <span class="nav-icon">♧</span>
-            Sales team
-          </a>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="topbar">
+      <div class="topbar__inner">
+        <a class="wordmark" href="#main" aria-label="Adventure Works reseller warehouse">
+          <span class="wordmark__mark">AW</span>
+          <span>Adventure Works</span>
+        </a>
+        <nav class="nav-tabs" aria-label="Dashboard sections">
+          <a class="nav-tabs__link is-current" href="#overview">Overview</a>
+          <a class="nav-tabs__link" href="#sales-trend">Sales trend</a>
+          <a class="nav-tabs__link" href="#products">Product mix</a>
+          <a class="nav-tabs__link" href="#territory">Territory</a>
+          <a class="nav-tabs__link" href="#team">Sales people</a>
+          <a class="nav-tabs__link" href="#resellers">Resellers</a>
+          <a class="nav-tabs__link" href="#promotions">Promotions</a>
         </nav>
+        <div class="topbar__meta">
+          <span class="sync-state"><span class="sync-state__mark"></span>Warehouse ready</span>
+          <span class="topbar__date">10 Nov 2024</span>
+        </div>
+      </div>
+    </header>
 
-        <div class="sidebar-footer">
-          <div class="warehouse-status">
-            <span class="status-dot"></span>
-            <div>
-              <strong>Warehouse synced</strong>
-              <small>Last refresh · 10 Nov 2024</small>
-            </div>
-          </div>
-          <div class="profile">
-            <div class="avatar">AF</div>
-            <div>
-              <strong>Achmad Naufal</strong>
-              <small>Dashboard developer</small>
-            </div>
-            <span class="more">•••</span>
+    <main id="main">
+      <section class="workspace-head container" id="overview">
+        <div>
+          <p class="section-context">Reseller sales mart</p>
+          <h1>Reseller sales, read from every angle.</h1>
+          <p class="lead">
+            Compare product mix, reseller contribution, territories, sales people, promotions, and monthly movement.
+          </p>
+        </div>
+        <div class="warehouse-readout">
+          <span class="readout-label">Warehouse readout</span>
+          <strong class="reading">60,919</strong>
+          <span class="readout-unit">order lines in the current fact grain</span>
+          <div class="readout-meta">
+            <span>2011 to 2014</span>
+            <span>3,806 reseller orders</span>
           </div>
         </div>
-      </aside>
+      </section>
 
-      <main class="main-content" id="overview">
-        <header class="topbar">
-          <button class="mobile-menu" type="button" aria-label="Buka navigasi">☰</button>
+      <section class="control-band" aria-label="Warehouse filters">
+        <div class="container control-band__inner">
+          <div class="control-group">
+            <span class="control-label">View</span>
+            <button class="control-button is-selected" type="button">Reseller sales</button>
+            <button class="control-button" type="button">All history</button>
+          </div>
+          <div class="control-group">
+            <span class="control-label">Slice</span>
+            <button class="control-button" type="button">All territories</button>
+            <button class="control-button" type="button">All categories</button>
+          </div>
+          <span class="data-line">dw_kelompok_1 / fact_reseller_sales only</span>
+        </div>
+      </section>
+
+      <section class="section container" id="sales-trend">
+        <div class="section-heading">
           <div>
-            <p class="eyebrow">Reseller analytics / Overview</p>
-            <h1>Good morning, Naufal <span>✦</span></h1>
+            <p class="section-context">Question 05</p>
+            <h2>Monthly sales against the year before.</h2>
           </div>
-          <div class="topbar-actions">
-            <button class="icon-button" aria-label="Notifikasi">♧<span class="notification"></span></button>
-            <button class="export-button" type="button">Export report <span>↓</span></button>
+          <p class="section-note">Measure: sales value. Grain: month and year.</p>
+        </div>
+        <div class="panel panel--trend">
+          <div class="panel-bar">
+            <div class="metric-readout">
+              <span class="readout-label">All reseller sales</span>
+              <strong class="reading reading--large">$90.78M</strong>
+              <span class="metric-change">+18.6% latest 12 months</span>
+            </div>
+            <div class="legend" aria-label="Chart legend">
+              <span><i class="legend-swatch legend-swatch--accent"></i>2014</span>
+              <span><i class="legend-swatch legend-swatch--muted"></i>2013</span>
+            </div>
           </div>
-        </header>
-
-        <section class="filter-row" aria-label="Filter dashboard">
-          <div class="filter-heading">
-            <span class="live-dot"></span>
-            <strong>Live overview</strong>
-            <span class="muted">Data reseller historis</span>
+          <div class="chart-frame chart-frame--trend">
+            <canvas id="salesTrendChart" aria-label="Monthly reseller sales compared with the previous year"></canvas>
           </div>
-          <div class="filter-controls">
-            <button class="filter-button">All territories <span>⌄</span></button>
-            <button class="filter-button">All categories <span>⌄</span></button>
-            <button class="date-button"><span>▣</span> 2011 — 2014 <span>⌄</span></button>
+        </div>
+      </section>
+
+      <section class="section section--split container" id="territory">
+        <div class="section-heading section-heading--compact">
+          <div>
+            <p class="section-context">Questions 01 and 05</p>
+            <h2>Category leadership changes by quarter.</h2>
           </div>
-        </section>
-
-        <section class="kpi-grid" aria-label="Ringkasan performa">
-          <article class="kpi-card accent-lilac">
-            <div class="kpi-top"><span>Total sales</span><span class="kpi-icon">↗</span></div>
-            <strong class="kpi-value">$90.78M</strong>
-            <div class="kpi-meta"><span class="positive">+12.8%</span><span>vs. previous period</span></div>
-            <div class="sparkline spark-purple"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-          </article>
-          <article class="kpi-card accent-mint">
-            <div class="kpi-top"><span>Reseller orders</span><span class="kpi-icon">◫</span></div>
-            <strong class="kpi-value">3,806</strong>
-            <div class="kpi-meta"><span class="positive">+8.4%</span><span>vs. previous period</span></div>
-            <div class="sparkline spark-green"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-          </article>
-          <article class="kpi-card accent-peach">
-            <div class="kpi-top"><span>Units sold</span><span class="kpi-icon">▤</span></div>
-            <strong class="kpi-value">1.24M</strong>
-            <div class="kpi-meta"><span class="positive">+16.2%</span><span>vs. previous period</span></div>
-            <div class="sparkline spark-orange"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-          </article>
-          <article class="kpi-card accent-blue">
-            <div class="kpi-top"><span>Avg. order value</span><span class="kpi-icon">◉</span></div>
-            <strong class="kpi-value">$23.84K</strong>
-            <div class="kpi-meta"><span class="positive">+4.1%</span><span>vs. previous period</span></div>
-            <div class="sparkline spark-blue"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-          </article>
-        </section>
-
-        <section class="dashboard-grid">
-          <article class="panel panel-large" id="sales-trend">
-            <div class="panel-header">
+          <p class="section-note">Sales value by product category and quarter.</p>
+        </div>
+        <div class="split-grid">
+          <div class="panel panel--category" id="products">
+            <div class="panel-bar">
               <div>
-                <span class="panel-kicker">Performance over time</span>
-                <h2>Sales trend</h2>
+                <h3>Quarterly category mix: bikes stay the main warehouse signal.</h3>
               </div>
-              <div class="legend">
-                <span><i class="legend-dot purple"></i>Actual sales</span>
-                <span><i class="legend-dot pale"></i>Previous year</span>
-                <button class="small-select">Monthly⌄</button>
-              </div>
+              <span class="data-line">USD · millions</span>
             </div>
-            <div class="chart-wrap trend-chart"><canvas id="salesTrendChart"></canvas></div>
-            <div class="chart-footnote"><span class="trend-up">↑ 18.6%</span> growth in the latest 12 months compared to the same period last year</div>
-          </article>
-
-          <article class="panel" id="products">
-            <div class="panel-header">
+            <div class="chart-frame chart-frame--category">
+              <canvas id="categoryChart" aria-label="Quarterly sales by product category"></canvas>
+            </div>
+          </div>
+          <div class="panel panel--territory">
+            <div class="panel-bar">
               <div>
-                <span class="panel-kicker">Product dimension</span>
-                <h2>Sales by category</h2>
+                <h3>Territory contribution: Northwest leads the reseller channel.</h3>
               </div>
-              <button class="more-button" aria-label="Pilihan lainnya">•••</button>
+              <span class="data-line">Share of sales</span>
             </div>
-            <div class="chart-wrap category-chart"><canvas id="categoryChart"></canvas></div>
-            <div class="category-list">
-              <div><span class="category-label"><i class="category-dot dot-1"></i>Bikes</span><strong>$50.8M</strong><small>56.0%</small></div>
-              <div><span class="category-label"><i class="category-dot dot-2"></i>Accessories</span><strong>$19.4M</strong><small>21.4%</small></div>
-              <div><span class="category-label"><i class="category-dot dot-3"></i>Clothing</span><strong>$12.1M</strong><small>13.3%</small></div>
-              <div><span class="category-label"><i class="category-dot dot-4"></i>Components</span><strong>$8.5M</strong><small>9.3%</small></div>
+            <div class="territory-list" id="territoryChart">
+              <div class="territory-row territory-row--lead"><span>Northwest</span><strong>28%</strong><span class="territory-bar"><i style="--value: 28%"></i></span></div>
+              <div class="territory-row"><span>Southwest</span><strong>22%</strong><span class="territory-bar"><i style="--value: 22%"></i></span></div>
+              <div class="territory-row"><span>Canada</span><strong>18%</strong><span class="territory-bar"><i style="--value: 18%"></i></span></div>
+              <div class="territory-row"><span>Central</span><strong>17%</strong><span class="territory-bar"><i style="--value: 17%"></i></span></div>
+              <div class="territory-row"><span>Other territories</span><strong>15%</strong><span class="territory-bar"><i style="--value: 15%"></i></span></div>
             </div>
-          </article>
+            <p class="panel-caption">Use the territory dimension to read where the category mix is strongest.</p>
+          </div>
+        </div>
+      </section>
 
-          <article class="panel" id="team">
-            <div class="panel-header">
-              <div>
-                <span class="panel-kicker">Territory dimension</span>
-                <h2>Sales by territory</h2>
-              </div>
-              <button class="more-button" aria-label="Pilihan lainnya">•••</button>
+      <section class="section container" id="team">
+        <div class="section-heading">
+          <div>
+            <p class="section-context">Question 03</p>
+            <h2>Sales people, ranked by territory.</h2>
+          </div>
+          <p class="section-note">Rolling 12-month view. Measure: sales value.</p>
+        </div>
+        <div class="panel panel--people">
+          <div class="panel-bar">
+            <div>
+              <h3>Sales person performance: compare people and territory in one frame.</h3>
             </div>
-            <div class="territory-content">
-              <div class="donut-wrap"><canvas id="territoryChart"></canvas><div class="donut-total"><strong>$90.8M</strong><small>Total</small></div></div>
-              <div class="territory-legend">
-                <div><span><i class="territory-dot dot-a"></i>Northwest</span><strong>28%</strong></div>
-                <div><span><i class="territory-dot dot-b"></i>Southwest</span><strong>22%</strong></div>
-                <div><span><i class="territory-dot dot-c"></i>Canada</span><strong>18%</strong></div>
-                <div><span><i class="territory-dot dot-d"></i>Central</span><strong>17%</strong></div>
-                <div><span><i class="territory-dot dot-e"></i>Other</span><strong>15%</strong></div>
-              </div>
-            </div>
-            <div class="insight-box"><span>✦</span><p><strong>Northwest leads</strong> with $25.4M in reseller sales, driven by Bikes.</p></div>
-          </article>
+            <span class="data-line">12 months · USD millions</span>
+          </div>
+          <div class="chart-frame chart-frame--people">
+            <canvas id="peopleChart" aria-label="Sales person performance by territory"></canvas>
+          </div>
+        </div>
+      </section>
 
-          <article class="panel panel-large" id="resellers">
-            <div class="panel-header">
+      <section class="section section--split container" id="promotions">
+        <div class="section-heading section-heading--compact">
+          <div>
+            <p class="section-context">Questions 02 and 04</p>
+            <h2>Contribution and promotion effect.</h2>
+          </div>
+          <p class="section-note">Read reseller value beside the offer that moved it.</p>
+        </div>
+        <div class="split-grid split-grid--bottom">
+          <div class="panel table-panel" id="resellers">
+            <div class="panel-bar">
               <div>
-                <span class="panel-kicker">Reseller dimension</span>
-                <h2>Top resellers</h2>
+                <h3>Annual reseller leaders: who carried the year?</h3>
               </div>
-              <button class="view-all">View all <span>→</span></button>
+              <span class="data-line">Sales and units</span>
             </div>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>RESELLER</th><th>TERRITORY</th><th>ORDERS</th><th>SALES</th><th>TREND</th></tr></thead>
+                <thead>
+                  <tr><th scope="col">Year</th><th scope="col">Reseller</th><th scope="col">Sales</th><th scope="col">Units</th></tr>
+                </thead>
                 <tbody>
-                  <tr><td><span class="table-avatar purple-avatar">RG</span><strong>Riding Gear Co.</strong></td><td>Northwest</td><td>182</td><td><strong>$4.82M</strong></td><td><span class="positive">↗ 24.8%</span></td></tr>
-                  <tr><td><span class="table-avatar orange-avatar">AW</span><strong>Adventure Outlet</strong></td><td>Southwest</td><td>164</td><td><strong>$4.16M</strong></td><td><span class="positive">↗ 19.2%</span></td></tr>
-                  <tr><td><span class="table-avatar blue-avatar">MT</span><strong>Mountain Traders</strong></td><td>Canada</td><td>151</td><td><strong>$3.74M</strong></td><td><span class="positive">↗ 15.6%</span></td></tr>
-                  <tr><td><span class="table-avatar green-avatar">SP</span><strong>Sporting Pro</strong></td><td>Central</td><td>137</td><td><strong>$3.41M</strong></td><td><span class="positive">↗ 11.4%</span></td></tr>
+                  <tr><td class="num">2011</td><td>Riding Gear Co.</td><td class="num">$4.82M</td><td class="num">71.4K</td></tr>
+                  <tr><td class="num">2012</td><td>Adventure Outlet</td><td class="num">$4.16M</td><td class="num">64.1K</td></tr>
+                  <tr><td class="num">2013</td><td>Mountain Traders</td><td class="num">$3.74M</td><td class="num">58.9K</td></tr>
+                  <tr><td class="num">2014</td><td>Sporting Pro</td><td class="num">$3.41M</td><td class="num">52.7K</td></tr>
                 </tbody>
               </table>
             </div>
-          </article>
-
-          <article class="panel promo-card">
-            <div class="panel-header">
+          </div>
+          <div class="panel panel--promotion">
+            <div class="panel-bar">
               <div>
-                <span class="panel-kicker">Promotion dimension</span>
-                <h2>Campaign spotlight</h2>
+                <h3>Promotion effectiveness: Special Offer #50 has the clearest lift.</h3>
               </div>
-              <span class="live-tag">Top performer</span>
+              <span class="data-line">Lift and discount</span>
             </div>
-            <div class="promo-main">
-              <div class="promo-art">%</div>
-              <div><span>Special Offer #50</span><strong>Road-200 sale</strong><small>12.4K units influenced</small></div>
+            <div class="chart-frame chart-frame--promotion">
+              <canvas id="promotionChart" aria-label="Promotion effectiveness by sales lift and discount"></canvas>
             </div>
-            <div class="promo-stats"><div><small>Revenue lift</small><strong>+31.8%</strong></div><div><small>Discount used</small><strong>$2.84M</strong></div></div>
-          </article>
-        </section>
+          </div>
+        </div>
+      </section>
+    </main>
 
-        <footer class="footer"><span>Adventure Works DW · Reseller sales mart</span><span>Mockup interface · Chart.js visualization</span></footer>
-      </main>
-    </div>
+    <footer class="footer">
+      <div class="container footer__inner">
+        <span>Adventure Works data warehouse</span>
+        <span>Reseller sales mart · online sales excluded</span>
+        <span>Chart.js visualization</span>
+      </div>
+    </footer>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="script.js"></script>
   </body>

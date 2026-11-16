@@ -1,80 +1,163 @@
-const chartFont = {
-  family: "DM Sans",
-  size: 10,
+const palette = {
+  accent: "oklch(82% 0.15 80)",
+  muted: "oklch(71% 0.01 250)",
+  cool: "oklch(77% 0.12 245)",
+  rule: "oklch(31% 0.01 250)",
+  paper: "oklch(21% 0.009 250)",
+  ink: "oklch(95% 0.005 250)",
 };
 
-Chart.defaults.font = chartFont;
-Chart.defaults.color = "#9a9cac";
-Chart.defaults.animation.duration = 650;
+Chart.defaults.font = {
+  family: "Host Grotesk",
+  size: 12,
+};
+Chart.defaults.color = palette.muted;
+Chart.defaults.animation.duration = 420;
 
-const gridColor = "#efeff5";
-const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const axis = {
+  x: {
+    border: { display: false },
+    grid: { display: false },
+    ticks: { color: palette.muted, padding: 8 },
+  },
+  y: {
+    border: { display: false },
+    grid: { color: palette.rule },
+    ticks: {
+      color: palette.muted,
+      padding: 8,
+      callback: (value) => `$${value}M`,
+    },
+  },
+};
+
+const tooltip = {
+  backgroundColor: palette.paper,
+  borderColor: palette.rule,
+  borderWidth: 1,
+  titleColor: palette.ink,
+  bodyColor: palette.muted,
+  padding: 12,
+};
 
 new Chart(document.getElementById("salesTrendChart"), {
   type: "line",
   data: {
-    labels: months,
+    labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
     datasets: [
       {
-        label: "Actual sales",
+        label: "2014",
         data: [5.4, 5.9, 6.2, 6.8, 7.1, 7.6, 8.3, 8.1, 8.8, 9.2, 10.1, 10.8],
-        borderColor: "#6f5ce7",
-        backgroundColor: "rgba(111, 92, 231, .10)",
+        borderColor: palette.accent,
+        backgroundColor: "color-mix(in oklab, oklch(82% 0.15 80) 12%, transparent)",
         fill: true,
-        tension: 0.4,
+        tension: 0.36,
         pointRadius: 0,
         pointHoverRadius: 4,
-        borderWidth: 2.5,
+        borderWidth: 2,
       },
       {
-        label: "Previous year",
+        label: "2013",
         data: [4.8, 5.0, 5.4, 5.8, 6.1, 6.4, 6.9, 7.0, 7.4, 7.8, 8.2, 8.9],
-        borderColor: "#d7d0ff",
-        fill: false,
-        tension: 0.4,
-        pointRadius: 0,
-        borderWidth: 2,
+        borderColor: palette.muted,
         borderDash: [4, 4],
+        fill: false,
+        tension: 0.36,
+        pointRadius: 0,
+        borderWidth: 1.5,
       },
     ],
   },
   options: {
     maintainAspectRatio: false,
     interaction: { intersect: false, mode: "index" },
-    plugins: { legend: { display: false }, tooltip: { backgroundColor: "#26243f", padding: 10, displayColors: true, callbacks: { label: (context) => ` $${context.raw.toFixed(1)}M` } } },
-    scales: {
-      x: { grid: { display: false }, border: { display: false }, ticks: { padding: 8 } },
-      y: { beginAtZero: true, max: 12, ticks: { stepSize: 3, padding: 10, callback: (value) => `$${value}M` }, grid: { color: gridColor }, border: { display: false } },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        ...tooltip,
+        callbacks: { label: (context) => ` ${context.dataset.label}: $${context.raw.toFixed(1)}M` },
+      },
     },
+    scales: { ...axis, y: { ...axis.y, max: 12, ticks: { ...axis.y.ticks, stepSize: 3 } } },
   },
 });
 
 new Chart(document.getElementById("categoryChart"), {
   type: "bar",
   data: {
-    labels: ["Bikes", "Accessories", "Clothing", "Components"],
-    datasets: [{ data: [50.8, 19.4, 12.1, 8.5], backgroundColor: ["#6f5ce7", "#9f8ff3", "#c7bdf8", "#e7e2ff"], borderRadius: 5, borderSkipped: false, barThickness: 22 }],
+    labels: ["Q1", "Q2", "Q3", "Q4"],
+    datasets: [
+      { label: "Bikes", data: [11.8, 12.5, 13.2, 13.3], backgroundColor: palette.accent, borderWidth: 0 },
+      { label: "Accessories", data: [4.4, 4.8, 5.1, 5.1], backgroundColor: "oklch(69% 0.12 80)", borderWidth: 0 },
+      { label: "Clothing", data: [2.7, 3.0, 3.1, 3.3], backgroundColor: "oklch(56% 0.08 80)", borderWidth: 0 },
+      { label: "Components", data: [1.8, 2.0, 2.2, 2.5], backgroundColor: "oklch(43% 0.05 80)", borderWidth: 0 },
+    ],
   },
   options: {
     maintainAspectRatio: false,
-    plugins: { legend: { display: false }, tooltip: { backgroundColor: "#26243f", callbacks: { label: (context) => ` $${context.raw}M` } } },
+    plugins: { legend: { display: false }, tooltip },
     scales: {
-      x: { grid: { display: false }, border: { display: false }, ticks: { padding: 6, font: { size: 9 } } },
-      y: { beginAtZero: true, max: 60, ticks: { stepSize: 20, callback: (value) => `$${value}M` }, grid: { color: gridColor }, border: { display: false } },
+      x: { ...axis.x, stacked: true },
+      y: { ...axis.y, stacked: true, max: 24, ticks: { ...axis.y.ticks, stepSize: 6 } },
     },
   },
 });
 
-new Chart(document.getElementById("territoryChart"), {
-  type: "doughnut",
-  data: { labels: ["Northwest", "Southwest", "Canada", "Central", "Other"], datasets: [{ data: [28, 22, 18, 17, 15], backgroundColor: ["#6f5ce7", "#9584ee", "#b7aaf5", "#d4cbfa", "#e9e5ff"], borderWidth: 0, hoverOffset: 4 }] },
-  options: { maintainAspectRatio: false, cutout: "74%", plugins: { legend: { display: false }, tooltip: { backgroundColor: "#26243f", callbacks: { label: (context) => ` ${context.label}: ${context.raw}%` } } } },
+new Chart(document.getElementById("peopleChart"), {
+  type: "bar",
+  data: {
+    labels: ["Northwest · S. Jackson", "Southwest · J. Adams", "Canada · T. Zheng", "Central · M. Lee", "Northeast · R. Diaz"],
+    datasets: [
+      {
+        label: "Sales value",
+        data: [9.4, 8.7, 7.9, 7.3, 6.8],
+        backgroundColor: [palette.accent, "oklch(76% 0.12 80)", "oklch(68% 0.09 80)", "oklch(60% 0.07 80)", "oklch(51% 0.05 80)"],
+        borderWidth: 0,
+        borderRadius: 2,
+        barThickness: 22,
+      },
+    ],
+  },
+  options: {
+    indexAxis: "y",
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { ...tooltip, callbacks: { label: (context) => ` $${context.raw.toFixed(1)}M` } },
+    },
+    scales: {
+      x: { ...axis.y, max: 12, ticks: { ...axis.y.ticks, stepSize: 3 } },
+      y: { ...axis.x, grid: { display: false } },
+    },
+  },
 });
 
-document.querySelector(".mobile-menu").addEventListener("click", () => {
-  document.querySelector(".sidebar").classList.toggle("open");
+new Chart(document.getElementById("promotionChart"), {
+  type: "bar",
+  data: {
+    labels: ["Offer #50", "Offer #16", "Offer #45", "Offer #20"],
+    datasets: [
+      { label: "Revenue lift", data: [31.8, 24.2, 18.6, 12.4], backgroundColor: palette.accent, borderWidth: 0, borderRadius: 2 },
+      { label: "Discount used", data: [28.4, 21.3, 17.1, 11.6], backgroundColor: palette.cool, borderWidth: 0, borderRadius: 2 },
+    ],
+  },
+  options: {
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { ...tooltip, callbacks: { label: (context) => ` ${context.dataset.label}: ${context.raw}%` } },
+    },
+    scales: {
+      x: { ...axis.x },
+      y: { beginAtZero: true, max: 40, border: { display: false }, grid: { color: palette.rule }, ticks: { color: palette.muted, callback: (value) => `${value}%` } },
+    },
+  },
 });
 
-document.querySelectorAll(".nav-item").forEach((item) => {
-  item.addEventListener("click", () => document.querySelector(".sidebar").classList.remove("open"));
+document.querySelectorAll(".control-button").forEach((button) => {
+  button.addEventListener("click", () => {
+    const group = button.closest(".control-group");
+    group.querySelectorAll(".control-button").forEach((item) => item.classList.remove("is-selected"));
+    button.classList.add("is-selected");
+  });
 });
