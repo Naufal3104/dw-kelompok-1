@@ -32,7 +32,7 @@ Alasan        : Pentaho PDI terasa berat saat dijalankan dan tidak mendukung kol
 Dampak        : 
 - Bagian ETL/ELT : Pembuatan 15 tabel staging (`stg_*`) dimajukan ke Pekan 11 melalui `sql/00_staging_ddl.sql` dan didokumentasikan tipe datanya di `docs/kamus-data.md` karena n8n tidak men-generate tabel staging otomatis seperti Pentaho. Selanjutnya seluruh alur ELT—mulai dari ekstraksi `adventureworks2` ke `stg_*`, transformasi SCD dimensi, hingga load `fact_penjualan_reseller` di `db_warehouse` dieksekusi dan diorkestrasi langsung di dalam workflow **n8n** (menggunakan node MySQL/SQL dan node transformasi n8n).
 - Bagian Cube    : Tidak mengubah struktur dimensi, hierarki, maupun measure pada rancangan cube (`docs/desain-cube.md`).
-Keputusan     : 
+Keputusan     : Approved by Sponsor
 
 ## 5. Rencana pekan depan
 | Target | Penanggung jawab |
