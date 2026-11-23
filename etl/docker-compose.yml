@@ -1,0 +1,46 @@
+# docker-compose.yml  |  Jalur n8n, proyek Data Warehouse
+# Dijalankan di VPS. Database sumber (PostgreSQL) dan DW (MySQL/MariaDB)
+# berjalan langsung di VPS yang sama, di luar Docker.
+#
+# Jalankan : docker compose up -d
+# Buka     : https://n8n.nemesisid.work  (atau http://<ip-vps>:5678)
+#
+# Setelah berhasil, catat nomor versi n8n yang terpasang dan ganti
+# "latest" di bawah dengan nomor itu, agar semua anggota memakai versi sama.
+# Versi yang sedang terpasang di VPS ini: 2.44.7
+
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:2.44.7
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      # Zona waktu UTC mencegah tanggal bergeser 7 jam (lihat lampiran)
+      - GENERIC_TIMEZONE=UTC
+      - TZ=UTC
+      # Memori lebih besar untuk tabel penjualan
+      - NODE_OPTIONS=--max-old-space-size=2048
+      # Login dashboard n8n (sudah ada sebelumnya, dipertahankan)
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=N8n@dm1n2026!
+      - N8N_RELEASE_TYPE=stable
+      - N8N_SECURE_COOKIES=false
+      - WEBHOOK_URL=https://n8n.nemesisid.work/
+    extra_hosts:
+      # Agar n8n bisa menghubungi PostgreSQL dan MySQL/MariaDB yang
+      # berjalan langsung di VPS (bukan di dalam Docker) lewat
+      # alamat host.docker.internal.
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./:/home/node/.n8n
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:5678/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  n8n_data:
