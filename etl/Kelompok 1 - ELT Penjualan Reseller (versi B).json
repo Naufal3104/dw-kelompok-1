@@ -1,0 +1,325 @@
+{
+  "name": "Kelompok 1 - ELT Penjualan Reseller (versi B)",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DELETE FROM fact_penjualan_reseller;\n\nDELETE FROM dim_produk       WHERE produk_key       <> -1;\nDELETE FROM dim_reseller     WHERE reseller_key     <> -1;\nDELETE FROM dim_sales_person WHERE sales_person_key <> -1;\nDELETE FROM dim_wilayah      WHERE wilayah_key      <> -1;\nDELETE FROM dim_promosi      WHERE promosi_key      <> -1;\nDELETE FROM dim_metode_kirim WHERE metode_kirim_key <> -1;\nDELETE FROM dim_mata_uang    WHERE mata_uang_key    <> -1;\n\nTRUNCATE TABLE stg_salesorderheader;\nTRUNCATE TABLE stg_salesorderdetail;\nTRUNCATE TABLE stg_product;\nTRUNCATE TABLE stg_productsubcategory;\nTRUNCATE TABLE stg_productcategory;\nTRUNCATE TABLE stg_productcosthistory;\nTRUNCATE TABLE stg_productlistpricehistory;\nTRUNCATE TABLE stg_store;\nTRUNCATE TABLE stg_customer;\nTRUNCATE TABLE stg_salesperson;\nTRUNCATE TABLE stg_person;\nTRUNCATE TABLE stg_salesterritory;\nTRUNCATE TABLE stg_specialoffer;\nTRUNCATE TABLE stg_shipmethod;\nTRUNCATE TABLE stg_currencyrate;\n",
+        "options": {}
+      },
+      "id": "69773a87-7d6a-4196-9656-e2a66b5c4918",
+      "name": "10 Kosongkan",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        112,
+        224
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "mySql": {
+          "id": "DySGAmBdWiZq5GKh",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT (SELECT COUNT(*) FROM sales_salesorderheader) AS stg_salesorderheader,\n       (SELECT COUNT(*) FROM sales_salesorderdetail) AS stg_salesorderdetail;\n",
+        "options": {}
+      },
+      "id": "131032cf-2752-40aa-a2e9-f16af2798818",
+      "name": "Hitung tabel besar",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        336,
+        224
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "mySql": {
+          "id": "0kq2phdynbxfjlB5",
+          "name": "MySQL account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Dibuat otomatis oleh tools/buat_workflow.py dari sql/etl/01_ekstrak_mysql.sql.\n// JANGAN edit query di sini. Ubah file SQL-nya, lalu jalankan ulang generator.\n//\n// Keluaran: satu item per batch, berisi { tabel, query, offset }.\n// Tabel kecil dibaca sekali. Tabel besar dibaca per 5000 baris.\n\nconst TABEL_KECIL = {\n  \"stg_product\": \"SELECT ProductID                    AS productid,\\n       Name                         AS name,\\n       ProductNumber                AS productnumber,\\n       Color                        AS color,\\n       ProductSubcategoryID         AS productsubcategoryid,\\n       CAST(StandardCost AS CHAR)   AS standardcost,\\n       CAST(ListPrice    AS CHAR)   AS listprice\\nFROM production_product;\",\n  \"stg_productsubcategory\": \"SELECT ProductSubcategoryID AS productsubcategoryid,\\n       ProductCategoryID    AS productcategoryid,\\n       Name                 AS name\\nFROM production_productsubcategory;\",\n  \"stg_productcategory\": \"SELECT ProductCategoryID AS productcategoryid,\\n       Name              AS name\\nFROM production_productcategory;\",\n  \"stg_productcosthistory\": \"SELECT ProductID                                    AS productid,\\n       DATE_FORMAT(StartDate, '%Y-%m-%d %H:%i:%s')  AS startdate,\\n       DATE_FORMAT(EndDate,   '%Y-%m-%d %H:%i:%s')  AS enddate,\\n       CAST(StandardCost AS CHAR)                   AS standardcost\\nFROM production_productcosthistory;\",\n  \"stg_productlistpricehistory\": \"SELECT ProductID                                    AS productid,\\n       DATE_FORMAT(StartDate, '%Y-%m-%d %H:%i:%s')  AS startdate,\\n       DATE_FORMAT(EndDate,   '%Y-%m-%d %H:%i:%s')  AS enddate,\\n       CAST(ListPrice AS CHAR)                      AS listprice\\nFROM production_productlistpricehistory;\",\n  \"stg_store\": \"SELECT BusinessEntityID AS businessentityid,\\n       Name             AS name,\\n       SalesPersonID    AS salespersonid,\\n       Demographics     AS demographics\\nFROM sales_store;\",\n  \"stg_customer\": \"SELECT CustomerID  AS customerid,\\n       PersonID    AS personid,\\n       StoreID     AS storeid,\\n       TerritoryID AS territoryid\\nFROM sales_customer;\",\n  \"stg_salesperson\": \"SELECT BusinessEntityID             AS businessentityid,\\n       TerritoryID                  AS territoryid,\\n       CAST(SalesQuota    AS CHAR)  AS salesquota,\\n       CAST(Bonus         AS CHAR)  AS bonus,\\n       CAST(CommissionPct AS CHAR)  AS commissionpct\\nFROM sales_salesperson;\",\n  \"stg_person\": \"SELECT BusinessEntityID AS businessentityid,\\n       FirstName        AS firstname,\\n       MiddleName       AS middlename,\\n       LastName         AS lastname\\nFROM person_person;\",\n  \"stg_salesterritory\": \"SELECT TerritoryID       AS territoryid,\\n       Name              AS name,\\n       CountryRegionCode AS countryregioncode,\\n       `Group`           AS `group`\\nFROM sales_salesterritory;\",\n  \"stg_specialoffer\": \"SELECT SpecialOfferID                               AS specialofferid,\\n       Description                                  AS description,\\n       Type                                         AS type,\\n       Category                                     AS category,\\n       CAST(DiscountPct AS CHAR)                    AS discountpct,\\n       DATE_FORMAT(StartDate, '%Y-%m-%d %H:%i:%s')  AS startdate,\\n       DATE_FORMAT(EndDate,   '%Y-%m-%d %H:%i:%s')  AS enddate\\nFROM sales_specialoffer;\",\n  \"stg_shipmethod\": \"SELECT ShipMethodID           AS shipmethodid,\\n       Name                   AS name,\\n       CAST(ShipBase AS CHAR) AS shipbase,\\n       CAST(ShipRate AS CHAR) AS shiprate\\nFROM purchasing_shipmethod;\",\n  \"stg_currencyrate\": \"SELECT CurrencyRateID                                      AS currencyrateid,\\n       DATE_FORMAT(CurrencyRateDate, '%Y-%m-%d %H:%i:%s')  AS currencyratedate,\\n       FromCurrencyCode                                    AS fromcurrencycode,\\n       ToCurrencyCode                                      AS tocurrencycode,\\n       CAST(AverageRate  AS CHAR)                          AS averagerate,\\n       CAST(EndOfDayRate AS CHAR)                          AS endofdayrate\\nFROM sales_currencyrate;\"\n};\n\nconst TABEL_BESAR = {\n  \"stg_salesorderheader\": \"SELECT SalesOrderID                                       AS salesorderid,\\n       SalesOrderNumber                                   AS salesordernumber,\\n       DATE_FORMAT(TIMESTAMPADD(SECOND, UNIX_TIMESTAMP(OrderDate), '1970-01-01 08:00:00'),\\n                   '%Y-%m-%d %H:%i:%s')               AS orderdate,\\n       DATE_FORMAT(DueDate,   '%Y-%m-%d %H:%i:%s')        AS duedate,\\n       DATE_FORMAT(ShipDate,  '%Y-%m-%d %H:%i:%s')        AS shipdate,\\n       OnlineOrderFlag                                    AS onlineorderflag,\\n       CustomerID                                         AS customerid,\\n       SalesPersonID                                      AS salespersonid,\\n       TerritoryID                                        AS territoryid,\\n       ShipMethodID                                       AS shipmethodid,\\n       CurrencyRateID                                     AS currencyrateid,\\n       CAST(SubTotal AS CHAR)                             AS subtotal,\\n       CAST(TaxAmt   AS CHAR)                             AS taxamt,\\n       CAST(Freight  AS CHAR)                             AS freight\\nFROM sales_salesorderheader\\nORDER BY SalesOrderID\\nLIMIT 5000 OFFSET {{ $json.offset }};\",\n  \"stg_salesorderdetail\": \"SELECT SalesOrderID                      AS salesorderid,\\n       SalesOrderDetailID                AS salesorderdetailid,\\n       ProductID                         AS productid,\\n       SpecialOfferID                    AS specialofferid,\\n       OrderQty                          AS orderqty,\\n       CAST(UnitPrice         AS CHAR)   AS unitprice,\\n       CAST(UnitPriceDiscount AS CHAR)   AS unitpricediscount,\\n       CAST(LineTotal         AS CHAR)   AS linetotal\\nFROM sales_salesorderdetail\\nORDER BY SalesOrderDetailID\\nLIMIT 5000 OFFSET {{ $json.offset }};\"\n};\n\nconst ukuran = 5000;\nconst jumlah = $input.first().json;   // { stg_salesorderheader: 31465, stg_salesorderdetail: 121317 }\nconst hasil = [];\n\nfor (const [tabel, query] of Object.entries(TABEL_KECIL)) {\n  hasil.push({ json: { tabel, query, offset: null } });\n}\n\nfor (const [tabel, query] of Object.entries(TABEL_BESAR)) {\n  // COUNT dari MySQL/MariaDB bisa terbaca sebagai teks, jadi diubah dengan Number().\n  const n = Number(jumlah[tabel]);\n  if (!Number.isFinite(n) || n <= 0) {\n    throw new Error(`Jumlah baris ${tabel} tidak terbaca: ${jumlah[tabel]}`);\n  }\n  for (let offset = 0; offset < n; offset += ukuran) {\n    hasil.push({ json: { tabel, offset, query: query.replace('{{ $json.offset }}', String(offset)) } });\n  }\n}\n\nreturn hasil;   // 13 + 7 + 25 = 45 item untuk data Hermes\n"
+      },
+      "id": "9bb4ff92-9713-40de-a377-d6e2f59cf66e",
+      "name": "Susun daftar batch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        224
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "dc53d4d6-82c8-40e4-a855-a7849101de50",
+      "name": "Loop batch",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        768,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $json.query }}",
+        "options": {}
+      },
+      "id": "6e9d3a4a-b32c-4e4e-af1f-660f837dc50b",
+      "name": "Ekstrak",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        992,
+        448
+      ],
+      "executeOnce": false,
+      "alwaysOutputData": false,
+      "credentials": {
+        "mySql": {
+          "id": "0kq2phdynbxfjlB5",
+          "name": "MySQL account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "table": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $('Loop batch').first().json.tabel }}"
+        },
+        "options": {}
+      },
+      "id": "f2a4f5ea-6f5f-481f-9c72-9d02d2a32b84",
+      "name": "Insert",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        1216,
+        448
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "DySGAmBdWiZq5GKh",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "27e0177c-02c3-4a77-bee4-8452b37d1b7e",
+      "name": "Limit 1",
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO dim_produk (produk_id, nama_produk, nomor_produk, warna, subkategori, kategori,\n                        biaya_standar, harga_jual, berlaku_mulai, berlaku_sampai, is_current)\nSELECT p.productid,\n       p.name,\n       p.productnumber,\n       COALESCE(p.color, 'Tidak ada'),\n       COALESCE(ps.name, 'Tanpa kategori'),\n       COALESCE(pc.name, 'Tanpa kategori'),\n       COALESCE(ch.standardcost, p.standardcost),\n       COALESCE(lp.listprice, p.listprice),\n       CASE WHEN ROW_NUMBER() OVER (PARTITION BY p.productid ORDER BY ch.startdate) = 1\n            THEN DATE '1900-01-01'\n            ELSE DATE(ch.startdate)\n       END,\n       COALESCE(DATE(LEAD(ch.startdate) OVER (PARTITION BY p.productid ORDER BY ch.startdate))\n                - INTERVAL 1 DAY,\n                DATE '9999-12-31'),\n       LEAD(ch.startdate) OVER (PARTITION BY p.productid ORDER BY ch.startdate) IS NULL\nFROM stg_product p\nLEFT JOIN stg_productsubcategory ps ON ps.productsubcategoryid = p.productsubcategoryid\nLEFT JOIN stg_productcategory    pc ON pc.productcategoryid    = ps.productcategoryid\nLEFT JOIN stg_productcosthistory ch ON ch.productid            = p.productid\nLEFT JOIN stg_productlistpricehistory lp\n       ON lp.productid  = p.productid\n      AND lp.startdate <= ch.startdate\n      AND (lp.enddate IS NULL OR lp.enddate >= ch.startdate);\n\nINSERT INTO dim_reseller (reseller_id, nama_reseller, tipe_bisnis,\n                          penjualan_tahunan, jumlah_karyawan, tahun_buka)\nSELECT x.businessentityid,\n       x.name,\n       CASE x.kode_bisnis\n            WHEN 'BM' THEN 'Value Added Reseller'\n            WHEN 'BS' THEN 'Specialty Bike Shop'\n            WHEN 'OS' THEN 'Warehouse'\n            ELSE COALESCE(x.kode_bisnis, 'Tidak diketahui')\n       END,\n       COALESCE(CAST(x.penjualan AS DECIMAL(15,2)), 0),\n       COALESCE(CAST(x.karyawan  AS SIGNED), 0),\n       COALESCE(CAST(x.tahun     AS SIGNED), -1)\nFROM (\n    SELECT s.businessentityid,\n           s.name,\n           NULLIF(TRIM(ExtractValue(s.demographics, '//BusinessType')),    '') AS kode_bisnis,\n           NULLIF(TRIM(ExtractValue(s.demographics, '//AnnualSales')),     '') AS penjualan,\n           NULLIF(TRIM(ExtractValue(s.demographics, '//NumberEmployees')), '') AS karyawan,\n           NULLIF(TRIM(ExtractValue(s.demographics, '//YearOpened')),      '') AS tahun\n    FROM stg_store s\n) x;\n\nINSERT INTO dim_sales_person (sales_person_id, nama_lengkap, komisi_persen, kuota_penjualan)\nSELECT sp.businessentityid,\n       COALESCE(CONCAT(pe.firstname, ' ', pe.lastname), 'Tidak diketahui'),\n       COALESCE(sp.commissionpct, 0),\n       COALESCE(sp.salesquota, 0)\nFROM stg_salesperson sp\nLEFT JOIN stg_person pe ON pe.businessentityid = sp.businessentityid;\n\nINSERT INTO dim_wilayah (wilayah_id, nama_wilayah, kode_negara, grup)\nSELECT t.territoryid,\n       COALESCE(t.name, 'Tidak diketahui'),\n       COALESCE(t.countryregioncode, 'N/A'),\n       COALESCE(t.`group`, 'Tidak diketahui')\nFROM stg_salesterritory t;\n\nINSERT INTO dim_promosi (promosi_id, deskripsi, jenis, kategori, persentase_diskon, mulai, selesai)\nSELECT so.specialofferid,\n       COALESCE(so.description, 'Tidak ada promosi'),\n       COALESCE(so.type, 'N/A'),\n       COALESCE(so.category, 'N/A'),\n       COALESCE(so.discountpct, 0),\n       COALESCE(DATE(so.startdate), DATE '1900-01-01'),\n       COALESCE(DATE(so.enddate),   DATE '9999-12-31')\nFROM stg_specialoffer so;\n\nINSERT INTO dim_metode_kirim (metode_kirim_id, nama_metode, biaya_dasar, tarif)\nSELECT sm.shipmethodid,\n       COALESCE(sm.name, 'Tidak diketahui'),\n       COALESCE(sm.shipbase, 0),\n       COALESCE(sm.shiprate, 0)\nFROM stg_shipmethod sm;\n\nINSERT INTO dim_mata_uang (currency_rate_id, kode_asal, kode_tujuan,\n                           tanggal_kurs, average_rate, end_of_day_rate)\nVALUES (0, 'USD', 'USD', DATE '1900-01-01', 1, 1);\n\nINSERT INTO dim_mata_uang (currency_rate_id, kode_asal, kode_tujuan,\n                           tanggal_kurs, average_rate, end_of_day_rate)\nSELECT cr.currencyrateid,\n       COALESCE(cr.fromcurrencycode, 'USD'),\n       COALESCE(cr.tocurrencycode, 'USD'),\n       COALESCE(DATE(cr.currencyratedate), DATE '1900-01-01'),\n       COALESCE(cr.averagerate, 1),\n       COALESCE(cr.endofdayrate, 1)\nFROM stg_currencyrate cr;\n",
+        "options": {}
+      },
+      "id": "8585d067-4ee7-465b-8748-7d41520a2eb5",
+      "name": "Dimensi 20-26",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        992,
+        16
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "mySql": {
+          "id": "DySGAmBdWiZq5GKh",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO fact_penjualan_reseller (\n    tanggal_pesan_key, tanggal_kirim_key, produk_key, reseller_key, sales_person_key,\n    wilayah_key, promosi_key, metode_kirim_key, mata_uang_key,\n    sales_order_id, sales_order_number,\n    jumlah_unit, harga_satuan, nilai_penjualan,\n    biaya_standar_produk, harga_jual_standar,\n    laba_kotor_reseller, laba_kotor_perusahaan)\nSELECT x.tanggal_pesan_key, x.tanggal_kirim_key, x.produk_key, x.reseller_key, x.sales_person_key,\n       x.wilayah_key, x.promosi_key, x.metode_kirim_key, x.mata_uang_key,\n       x.sales_order_id, x.sales_order_number,\n       x.jumlah_unit, x.harga_satuan, x.nilai,\n       x.biaya, x.harga_standar,\n       x.harga_standar - x.nilai,\n       x.nilai - x.biaya\nFROM (\n    SELECT COALESCE(tp.tanggal_key, -1)         AS tanggal_pesan_key,\n           COALESCE(tk.tanggal_key, -1)         AS tanggal_kirim_key,\n           COALESCE(dp.produk_key, -1)          AS produk_key,\n           COALESCE(dr.reseller_key, -1)        AS reseller_key,\n           COALESCE(ds.sales_person_key, -1)    AS sales_person_key,\n           COALESCE(dw.wilayah_key, -1)         AS wilayah_key,\n           COALESCE(dpr.promosi_key, -1)        AS promosi_key,\n           COALESCE(dm.metode_kirim_key, -1)    AS metode_kirim_key,\n           COALESCE(mu.mata_uang_key, -1)       AS mata_uang_key,\n           h.salesorderid                       AS sales_order_id,\n           COALESCE(h.salesordernumber, 'N/A')  AS sales_order_number,\n           d.orderqty                           AS jumlah_unit,\n           d.unitprice                          AS harga_satuan,\n           ROUND(d.linetotal, 2)                                AS nilai,\n           ROUND(COALESCE(dp.biaya_standar, 0) * d.orderqty, 2) AS biaya,\n           ROUND(COALESCE(dp.harga_jual,    0) * d.orderqty, 2) AS harga_standar\n    FROM stg_salesorderdetail d\n    JOIN stg_salesorderheader h   ON h.salesorderid = d.salesorderid\n    LEFT JOIN stg_customer c      ON c.customerid   = h.customerid\n    LEFT JOIN dim_tanggal tp      ON tp.tanggal     = DATE(h.orderdate)\n    LEFT JOIN dim_tanggal tk      ON tk.tanggal     = DATE(h.shipdate)\n    LEFT JOIN dim_produk dp       ON dp.produk_id   = d.productid\n                                 AND DATE(h.orderdate) BETWEEN dp.berlaku_mulai AND dp.berlaku_sampai\n    LEFT JOIN dim_reseller dr     ON dr.reseller_id      = c.storeid\n    LEFT JOIN dim_sales_person ds ON ds.sales_person_id  = h.salespersonid\n    LEFT JOIN dim_wilayah dw      ON dw.wilayah_id       = h.territoryid\n    LEFT JOIN dim_promosi dpr     ON dpr.promosi_id      = d.specialofferid\n    LEFT JOIN dim_metode_kirim dm ON dm.metode_kirim_id  = h.shipmethodid\n    LEFT JOIN dim_mata_uang mu    ON mu.currency_rate_id = COALESCE(h.currencyrateid, 0)\n    WHERE h.onlineorderflag = 0\n) x;\n",
+        "options": {}
+      },
+      "id": "b88f03bf-0927-4534-b691-9b7d4dc512c3",
+      "name": "Fakta 30",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        1216,
+        16
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "mySql": {
+          "id": "DySGAmBdWiZq5GKh",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 1,
+              "triggerAtMinute": 30
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -128,
+        224
+      ],
+      "id": "f427886e-7894-4234-b46e-8f165bce4a99",
+      "name": "Schedule Trigger",
+      "disabled": true
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "10 Kosongkan": {
+      "main": [
+        [
+          {
+            "node": "Hitung tabel besar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hitung tabel besar": {
+      "main": [
+        [
+          {
+            "node": "Susun daftar batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Susun daftar batch": {
+      "main": [
+        [
+          {
+            "node": "Loop batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop batch": {
+      "main": [
+        [
+          {
+            "node": "Dimensi 20-26",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ekstrak",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ekstrak": {
+      "main": [
+        [
+          {
+            "node": "Insert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert": {
+      "main": [
+        [
+          {
+            "node": "Limit 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit 1": {
+      "main": [
+        [
+          {
+            "node": "Loop batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dimensi 20-26": {
+      "main": [
+        [
+          {
+            "node": "Fakta 30",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "10 Kosongkan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "16ff75f3-c11d-43d4-84f1-5d218db060dc",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f560e2420735f2196b6ad2da4f549d8463fdec8ae50294ba5d9cabaceafa7781"
+  },
+  "nodeGroups": [],
+  "id": "wbfCoN05bdaohWze",
+  "tags": []
+}
